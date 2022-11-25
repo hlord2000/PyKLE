@@ -1,0 +1,3 @@
+(sym_lib_table
+  (lib (name "marbastlib-mx")(type "KiCad")(uri "/home/hlord/Work/PyKLE/src/PyKLE/marbastlib/marbastlib-mx.kicad_sym")(options "")(descr ""))
+)
