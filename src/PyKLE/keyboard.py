@@ -1,5 +1,4 @@
-from pathlib import Path
-from kiutils.footprint import Footprint
+from pathlib import Path from kiutils.footprint import Footprint
 from kiutils.board import Board
 from kiutils.symbol import Symbol
 from kiutils.items.schitems import SchematicSymbol 
@@ -10,10 +9,12 @@ import pykle_serial as ser
 
 class Keyboard():
     def __init__(self, kle_file: Path):
-        self.valid_widths = {1 : "1", 1.25 : "1.25", 1.5 : "1.5", 1.75 : "1.75"}
         with open(kle_file) as f:
             kle_deserialized = ser.parse(f)
         self.keyboard = self.keyboard_parse(kle_deserialized)
+
+    def insert_key(self):
+        # Will insert key into keyboard, checking if it overlaps with another key.
 
     def keyboard_parse(self, kle):
         keymap = []
@@ -50,8 +51,8 @@ class Keyboard():
         return keymap 
 
     def set_width(self, width):
-        if width in self.valid_widths:
-            return self.valid_widths[width]
+        if width in self.footprint_widths:
+            return self.footprint_widths[width]
         elif width > 1.75:
             return '1'
         else:
