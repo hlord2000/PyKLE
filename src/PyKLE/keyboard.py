@@ -1,74 +1,61 @@
-from pathlib import Path from kiutils.footprint import Footprint
+from pathlib import Path
+from keyswitch import Keyswitch
 from kiutils.board import Board
 from kiutils.symbol import Symbol
+from kiutils.symbol import SymbolLib
 from kiutils.items.schitems import SchematicSymbol 
 from kiutils.schematic import Schematic
 from kiutils.items.common import Position
 from kiutils.items.fpitems import FpText 
 import pykle_serial as ser
+from misc import footprints
 
 class Keyboard():
     def __init__(self, kle_file: Path):
+        self.keymap = [] 
+        self.widths_and_positions = []
         with open(kle_file) as f:
             kle_deserialized = ser.parse(f)
-        self.keyboard = self.keyboard_parse(kle_deserialized)
+        self.keyboard_parse(kle_deserialized)
+        self.board_generate()
+        self.schematic_generate()
 
-    def insert_key(self):
+    def insert_key(self, width, position):
         # Will insert key into keyboard, checking if it overlaps with another key.
+        if (width, position) in self.widths_and_positions:
+            pass
+        else:
+            self.keymap.append(Keyswitch(width, position))
+            self.widths_and_positions.append((width, position))
 
     def keyboard_parse(self, kle):
-        keymap = []
-        dont_fill = False
         for i, key in enumerate(kle.keys):
-            parsed_key = {
-                    "footprint" : None,
-                    "position" : None,
-                    "width" : None,
-                    "symbol" : None,
-            }
+            self.insert_key(key.width, Position(X=key.x * 19.05 + ((float(key.width)/2)*19.05), Y=key.y * 19.05, angle=0))
 
-            parsed_key['width'] = key.width
-            parsed_key['position'] = Position(X=key.x * 19.05 + ((float(key.width)/2)*19.05), Y=key.y * 19.05, angle=0)
+    def schematic_generate(self):
+        symbollib = SymbolLib().from_file(footprints.MX_SYMBOL_PATH)
+        schematic = Schematic().create_new()
+        for symbol in symbollib.symbols:
+            schematic.libSymbols.append(symbol)
+        for key in self.keymap:
+            schematic.symbolInstances.append(key.symbol)
+        schematic.to_file('test.kicad_sch')
 
-            for x in keymap:
-                if key.width == x['width']:
-                    if parsed_key['position'] == x['position']:
-                        dont_fill = True
-            if dont_fill:
-                dont_fill = False
-                continue
+    def board_generate(self, filename="test"):
+        board = Board().create_new()
+        for i, key in enumerate(self.keymap):
+            if key.has_stab:
+                self.set_identifier(key.stab_footprint, i, 'S')
+                board.footprints.append(key.stab_footprint)
+            self.set_identifier(key.switch_footprint, i, 'SW')
+            board.footprints.append(key.switch_footprint)
+        board.to_file(f'{filename}.kicad_pcb')
 
-            width = self.set_width(key.width)
-            footprint_file_path = f'/home/hlord/Work/PyKLE/src/PyKLE/marbastlib/marbastlib-mx.pretty/SW_MX_{width}u.kicad_mod'
-            parsed_key['footprint'] = Footprint().from_file(footprint_file_path)
-            print(parsed_key['footprint'])
-            parsed_key['symbol'] = SchematicSymbol()
-            parsed_key['symbol'].libraryIdentifier = "marbastlib-mx:SW_MX_HS_1u"
-            parsed_key['symbol'].position = parsed_key['position'] 
-            parsed_key['footprint'].position = parsed_key['position'] 
-            self.set_identifier(parsed_key['footprint'], i)
-            keymap.append(parsed_key)
-        return keymap 
-
-    def set_width(self, width):
-        if width in self.footprint_widths:
-            return self.footprint_widths[width]
-        elif width > 1.75:
-            return '1'
-        else:
-            raise ValueError
-
-    def set_identifier(self, key, index):
+    def set_identifier(self, key, index, name):
         for item in key.graphicItems:
             if isinstance(item, FpText):
                 if item.type =='reference':
-                    item.text = f"SW{index+1}"
+                    item.text = f"{name}{index+1}"
 
 path = Path('./keyboard-layout_1.json')
-
 k = Keyboard(path)
-board = Board().create_new()
-keys = k.keyboard
-for key in keys:
-    board.footprints.append(key['footprint'])
-board.to_file('test.kicad_pcb')
